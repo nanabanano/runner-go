@@ -55,6 +55,8 @@ func (d *DDoS) Run() {
 			for {
 				randomUrl := d.urls[rand.Intn(len(d.urls))]
 				fmt.Println("loading", randomUrl)
+				success, total := d.Result()
+				fmt.Println("success / total:", success, " / ", total)
 				resp, err := client.Get(randomUrl)
 				atomic.AddInt64(&d.amountRequests, 1)
 				if err == nil {
