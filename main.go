@@ -65,6 +65,7 @@ func (d *DDoS) Run() {
 					_ = resp.Body.Close()
 				}
 				runtime.Gosched()
+				time.Sleep(3 * time.Second)
 			}
 		}()
 	}

@@ -1,0 +1,8 @@
+1)force tor to change circuit
+echo -e 'AUTHENTICATE ""\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 9051
+2)check your current ip
+curl ifconfig.me
+3)check your tor ip
+torify curl ifconfig.me 2>/dev/null
+4)restart/stop/start tor service
+sudo /etc/init.d/tor restart
