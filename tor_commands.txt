@@ -1,5 +1,5 @@
 1)force tor to change circuit
-echo -e 'AUTHENTICATE ""\r\nsignal NEWNYM\r\nQUIT' | nc 127.0.0.1 9051
+sudo service tor reload
 2)check your current ip
 curl ifconfig.me
 3)check your tor ip
